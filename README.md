@@ -4,16 +4,15 @@ A powerful and intuitive command-line tool for interacting with AWS CloudWatch L
 
 ## Features
 
-### MVP Features (Implemented)
-✅ **Real-time log streaming** - Tail logs from CloudWatch in real-time
-✅ **Historical queries** - Search through past logs with time ranges
-✅ **Time range support** - Use flexible time formats (`--since 1h`, `--start`, `--end`)
-✅ **String filtering** - Filter logs with simple patterns or CloudWatch filter syntax
-✅ **List log groups** - Browse available log groups with pattern matching
-✅ **Colored output** - Enhanced readability with syntax highlighting
-✅ **Progress indicators** - Visual feedback during operations
-✅ **AWS profile support** - Switch between multiple AWS accounts
-✅ **Formatted table output** - Dynamic column detection with intelligent sorting
+- **Real-time log streaming** - Tail logs from CloudWatch in real-time
+- **Historical queries** - Search through past logs with time ranges
+- **Time range support** - Use flexible time formats (`--since 1h`, `--start`, `--end`)
+- **String filtering** - Filter logs with simple patterns or CloudWatch filter syntax
+- **List log groups** - Browse available log groups with pattern matching
+- **Colored output** - Enhanced readability with syntax highlighting
+- **Progress indicators** - Visual feedback during operations
+- **AWS profile support** - Switch between multiple AWS accounts
+- **Formatted table output** - Dynamic column detection with intelligent sorting
 
 ## Installation
 
@@ -161,26 +160,6 @@ region = "us-west-2"
 [aliases]
 lambda-errors = "query /aws/lambda/* --filter ERROR --since 1h"
 ```
-
-## Roadmap
-
-### Phase 2: Enhanced Filtering
-- [ ] Regex support
-- [x] JSON field extraction (via --formatted flag)
-- [ ] Multiple log group support
-- [ ] Additional output formats (JSON, CSV)
-
-### Phase 3: Advanced Features
-- [ ] CloudWatch Insights integration
-- [ ] Interactive TUI mode
-- [ ] Local caching
-- [ ] Configuration profiles
-
-### Phase 4: Polish
-- [ ] Shell completions (bash, zsh, fish)
-- [ ] Man page generation
-- [ ] Performance optimizations
-- [ ] Plugin system
 
 ## Contributing
 
