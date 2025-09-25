@@ -72,10 +72,13 @@ impl CloudWatchClient {
         start_time: Option<i64>,
         end_time: Option<i64>,
         filter_pattern: Option<&str>,
-        limit: Option<i32>,
+        limit: Option<usize>,
     ) -> Result<Vec<FilteredLogEvent>> {
         let mut events = Vec::new();
         let mut next_token = None;
+
+        // CloudWatch API has a max of 10,000 events per request
+        const MAX_EVENTS_PER_REQUEST: i32 = 10000;
 
         loop {
             let mut request = self.client.filter_log_events()
@@ -93,9 +96,18 @@ impl CloudWatchClient {
                 request = request.filter_pattern(pattern);
             }
 
-            if let Some(limit_val) = limit {
-                request = request.limit(limit_val);
-            }
+            // Calculate how many events to request in this batch
+            let batch_limit = if let Some(user_limit) = limit {
+                let remaining = user_limit.saturating_sub(events.len());
+                if remaining == 0 {
+                    break;
+                }
+                std::cmp::min(remaining as i32, MAX_EVENTS_PER_REQUEST)
+            } else {
+                MAX_EVENTS_PER_REQUEST
+            };
+
+            request = request.limit(batch_limit);
 
             if let Some(token) = next_token {
                 request = request.next_token(token);
@@ -108,14 +120,18 @@ impl CloudWatchClient {
                 events.extend(log_events);
             }
 
-            if let Some(limit_val) = limit {
-                if events.len() >= limit_val as usize {
+            // Check if we've reached the user-specified limit
+            if let Some(user_limit) = limit {
+                if events.len() >= user_limit {
+                    // Truncate to exactly the limit requested
+                    events.truncate(user_limit);
                     break;
                 }
             }
 
             next_token = response.next_token;
             if next_token.is_none() {
+                // No more pages available
                 break;
             }
         }

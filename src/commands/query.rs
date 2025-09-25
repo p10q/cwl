@@ -3,8 +3,9 @@ use colored::Colorize;
 use regex::Regex;
 use chrono::{DateTime, Utc};
 use crate::aws::client::CloudWatchClient;
-use crate::utils::{format, time};
+use crate::utils::{format, time, json_formatter};
 use indicatif::{ProgressBar, ProgressStyle};
+use serde_json::Value;
 
 pub async fn run(
     client: CloudWatchClient,
@@ -14,6 +15,7 @@ pub async fn run(
     end: Option<String>,
     filter: Option<String>,
     limit: usize,
+    formatted: bool,
 ) -> Result<()> {
     println!("{} {}",
         "Querying logs from:".bright_blue().bold(),
@@ -47,10 +49,19 @@ pub async fn run(
         );
     }
 
+    println!("{} {}",
+        "Max events:".bright_blue().bold(),
+        if limit == usize::MAX {
+            "unlimited (fetching all in time range)".bright_yellow().to_string()
+        } else {
+            limit.to_string().bright_yellow().to_string()
+        }
+    );
+
     let spinner = ProgressBar::new_spinner();
     spinner.set_style(
         ProgressStyle::default_spinner()
-            .template("{spinner:.green} {msg}")
+            .template("{spinner:.green} {msg} {prefix}")
             .unwrap()
     );
     spinner.set_message("Fetching log events...");
@@ -60,7 +71,7 @@ pub async fn run(
         start_time,
         end_time,
         filter.as_deref(),
-        Some(limit as i32),
+        if limit == usize::MAX { None } else { Some(limit) },
     ).await?;
 
     spinner.finish_and_clear();
@@ -75,34 +86,65 @@ pub async fn run(
         events.len().to_string().bright_yellow().bold()
     );
 
-    let regex_pattern = filter.as_ref()
-        .map(|f| Regex::new(&regex::escape(f)))
-        .transpose()?;
+    if formatted {
+        let mut log_lines = Vec::new();
 
-    for event in &events {
-        if let Some(ref message) = event.message {
-            let timestamp = event.timestamp.map(|ts| {
-                DateTime::<Utc>::from_timestamp_millis(ts)
-                    .map(|dt| dt.format("%Y-%m-%d %H:%M:%S%.3f").to_string())
-                    .unwrap_or_else(|| "Unknown time".to_string())
-            }).unwrap_or_else(|| "Unknown time".to_string());
+        for event in &events {
+            if let Some(ref message) = event.message {
+                let timestamp = event.timestamp.map(|ts| {
+                    DateTime::<Utc>::from_timestamp_millis(ts)
+                        .map(|dt| dt.format("%Y-%m-%d %H:%M:%S.%3f").to_string())
+                        .unwrap_or_else(|| "Unknown time".to_string())
+                }).unwrap_or_else(|| "Unknown time".to_string());
 
-            let stream_name = event.log_stream_name
-                .as_ref()
-                .map(|s| format!("[{}]", s.cyan()))
-                .unwrap_or_default();
+                let stream_name = event.log_stream_name
+                    .as_ref()
+                    .map(|s| s.clone())
+                    .unwrap_or_default();
 
-            let formatted_message = if regex_pattern.is_some() {
-                format::highlight_matches(&message, regex_pattern.as_ref().unwrap())
-            } else {
-                message.clone()
-            };
+                let mut parsed_message = message.clone();
 
-            println!("[{}] {} {}",
-                timestamp.bright_blue(),
-                stream_name,
-                formatted_message
-            );
+                if let Ok(json_value) = serde_json::from_str::<Value>(message) {
+                    parsed_message = serde_json::to_string(&json_value).unwrap_or_else(|_| message.clone());
+                }
+
+                let log_line = format!("[{}] [{}] {}", timestamp, stream_name, parsed_message);
+                log_lines.push(log_line);
+            }
+        }
+
+        let output = json_formatter::analyze_json_logs(&log_lines);
+        json_formatter::print_formatted_table(&output);
+    } else {
+        let regex_pattern = filter.as_ref()
+            .map(|f| Regex::new(&regex::escape(f)))
+            .transpose()?;
+
+        for event in &events {
+            if let Some(ref message) = event.message {
+                let timestamp = event.timestamp.map(|ts| {
+                    DateTime::<Utc>::from_timestamp_millis(ts)
+                        .map(|dt| dt.format("%Y-%m-%d %H:%M:%S%.3f").to_string())
+                        .unwrap_or_else(|| "Unknown time".to_string())
+                }).unwrap_or_else(|| "Unknown time".to_string());
+
+                let stream_name = event.log_stream_name
+                    .as_ref()
+                    .map(|s| format!("[{}]", s.cyan()))
+                    .unwrap_or_default();
+
+                let formatted_message = if regex_pattern.is_some() {
+                    format::highlight_matches(&message, regex_pattern.as_ref().unwrap())
+                } else {
+                    message.clone()
+                };
+
+                println!("[{}] {} {}",
+                    timestamp.bright_blue(),
+                    stream_name,
+                    formatted_message
+                );
+            }
         }
     }
 

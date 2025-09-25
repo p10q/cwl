@@ -55,8 +55,11 @@ enum Commands {
         #[arg(short = 'f', long, help = "Filter pattern")]
         filter: Option<String>,
 
-        #[arg(long, default_value = "1000", help = "Maximum number of events")]
-        limit: usize,
+        #[arg(long, help = "Maximum number of events (default: fetch all in time range)")]
+        limit: Option<usize>,
+
+        #[arg(long, help = "Format output as table with dynamic columns")]
+        formatted: bool,
     },
 
     #[command(about = "List available log groups")]
@@ -79,8 +82,8 @@ async fn main() -> Result<()> {
         Commands::Tail { log_group, follow, filter, highlight } => {
             commands::tail::run(aws_client, log_group, follow, filter, highlight).await?;
         },
-        Commands::Query { log_group, since, start, end, filter, limit } => {
-            commands::query::run(aws_client, log_group, since, start, end, filter, limit).await?;
+        Commands::Query { log_group, since, start, end, filter, limit, formatted } => {
+            commands::query::run(aws_client, log_group, since, start, end, filter, limit.unwrap_or(usize::MAX), formatted).await?;
         },
         Commands::Groups { filter } => {
             commands::groups::run(aws_client, filter).await?;
