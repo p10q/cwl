@@ -13,6 +13,7 @@ A powerful and intuitive command-line tool for interacting with AWS CloudWatch L
 ✅ **Colored output** - Enhanced readability with syntax highlighting
 ✅ **Progress indicators** - Visual feedback during operations
 ✅ **AWS profile support** - Switch between multiple AWS accounts
+✅ **Formatted table output** - Dynamic column detection with intelligent sorting
 
 ## Installation
 
@@ -64,6 +65,37 @@ cwl query /aws/lambda/my-function --start "2024-01-01 10:00:00" --end "2024-01-0
 
 # Query with filter and limit
 cwl query /aws/lambda/my-function --filter "user_id=12345" --limit 500
+
+# Query with formatted table output (auto-detects JSON structure)
+cwl query /aws/lambda/my-function --since 1h --formatted
+```
+
+#### Formatted Table Output
+
+The `--formatted` flag automatically parses JSON log entries and displays them in a dynamic table:
+
+```bash
+# View logs as a formatted table with all JSON fields as columns
+cwl query /aws/lambda/my-function --formatted --since 1h
+
+# Combine with filters for focused analysis
+cwl query /aws/ecs/my-app --formatted --filter "ERROR" --limit 100
+```
+
+**Features of formatted output:**
+- Automatically detects all JSON fields across log entries
+- Uses dot notation for nested fields (e.g., `payload.message`, `user.id`)
+- Sorts columns by frequency (most common fields appear leftmost)
+- Calculates optimal column widths
+- Truncates long values with ellipsis
+- Colored headers and separators for clarity
+
+Example output:
+```
+timestamp               │ log_group     │ level │ message      │ payload.error
+────────────────────────┼───────────────┼───────┼──────────────┼───────────────
+2024-01-01 10:15:23.456 │ my-app        │ ERROR │ Failed auth  │ Invalid token
+2024-01-01 10:15:24.789 │ my-app        │ WARN  │ Retry attempt│ Connection timeout
 ```
 
 ### Time Range Options
@@ -134,7 +166,7 @@ lambda-errors = "query /aws/lambda/* --filter ERROR --since 1h"
 
 ### Phase 2: Enhanced Filtering
 - [ ] Regex support
-- [ ] JSON field extraction
+- [x] JSON field extraction (via --formatted flag)
 - [ ] Multiple log group support
 - [ ] Additional output formats (JSON, CSV)
 
